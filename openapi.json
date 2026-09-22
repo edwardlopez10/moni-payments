@@ -21,6 +21,7 @@
         "tags": [
           "Health"
         ],
+        "security": [],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -64,6 +65,7 @@
         "tags": [
           "Health"
         ],
+        "security": [],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -3226,6 +3228,7 @@
             "required": true
           }
         ],
+        "security": [],
         "responses": {
           "202": {
             "description": "Default Response",
@@ -3905,6 +3908,11 @@
       }
     }
   },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
   "tags": [
     {
       "name": "Organizations"
