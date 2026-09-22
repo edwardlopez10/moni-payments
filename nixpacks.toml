@@ -1,0 +1,12 @@
+# Railway / Nixpacks build for moniveo-payments
+[phases.setup]
+nixPkgs = ["nodejs_20", "pnpm"]
+
+[phases.install]
+cmds = ["pnpm install --frozen-lockfile"]
+
+[phases.build]
+cmds = ["pnpm db:generate", "pnpm build"]
+
+[start]
+cmd = "pnpm db:deploy && pnpm start"
