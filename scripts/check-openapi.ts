@@ -8,10 +8,16 @@ import { loadEnv } from '../src/config/env';
 
 loadDotenv({ path: resolve(process.cwd(), '.env') });
 
+/**
+ * Must use the same fixed env as `openapi:export` so CI NODE_ENV=test does not
+ * inject `/__test/*` routes into the generated document.
+ */
 async function main(): Promise<void> {
   const env = loadEnv({
     ...process.env,
-    NODE_ENV: process.env.NODE_ENV === 'production' ? 'development' : process.env.NODE_ENV,
+    NODE_ENV: 'development',
+    LOG_LEVEL: 'silent',
+    DISPATCHER_INTERVAL_MS: '0',
   });
 
   const app = await buildApp({ env });

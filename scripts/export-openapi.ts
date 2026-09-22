@@ -8,10 +8,16 @@ import { loadEnv } from '../src/config/env';
 
 loadDotenv({ path: resolve(process.cwd(), '.env') });
 
+/**
+ * Always export against a fixed development-like env so CI (NODE_ENV=test) and
+ * local machines produce identical openapi.json documents.
+ */
 async function exportOpenApi(): Promise<void> {
   const env = loadEnv({
     ...process.env,
-    NODE_ENV: process.env.NODE_ENV === 'production' ? 'development' : process.env.NODE_ENV,
+    NODE_ENV: 'development',
+    LOG_LEVEL: 'silent',
+    DISPATCHER_INTERVAL_MS: '0',
   });
 
   const app = await buildApp({ env });
