@@ -1,0 +1,15 @@
+meta {
+  name: Get Fake Capabilities
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/v1/providers/fake/capabilities
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{apiKey}}
+}

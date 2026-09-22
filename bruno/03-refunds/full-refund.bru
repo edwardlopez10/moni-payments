@@ -1,0 +1,30 @@
+meta {
+  name: Full Refund
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/v1/payments/{{paymentId}}/refunds
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{apiKey}}
+  Idempotency-Key: bruno-rfnd-full-1
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "amount": 8500,
+    "reason": "requested_by_customer"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("refundId", res.body.id);
+  }
+}

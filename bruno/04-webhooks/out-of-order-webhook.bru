@@ -1,0 +1,17 @@
+meta {
+  name: Out of Order Webhook
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/dev/fake-provider/payments/{{paymentId}}/send-out-of-order-webhook
+  body: none
+  auth: none
+}
+
+script:post-response {
+  if (res.status === 202 && res.body.events && res.body.events.length > 0) {
+    bru.setEnvVar("webhookEventId", res.body.events[0].eventId);
+  }
+}

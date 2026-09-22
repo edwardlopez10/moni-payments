@@ -1,0 +1,17 @@
+meta {
+  name: Duplicate Webhook
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/dev/fake-provider/payments/{{paymentId}}/send-duplicate-webhook
+  body: none
+  auth: none
+}
+
+script:post-response {
+  if (res.status === 202) {
+    bru.setEnvVar("webhookEventId", res.body.eventId);
+  }
+}

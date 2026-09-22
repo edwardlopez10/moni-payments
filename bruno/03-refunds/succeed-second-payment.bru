@@ -1,0 +1,17 @@
+meta {
+  name: Succeed Second Payment
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/dev/fake-provider/payments/{{paymentId2}}/succeed
+  body: none
+  auth: none
+}
+
+script:post-response {
+  if (res.status === 202 && res.body.eventId) {
+    bru.setEnvVar("webhookEventId", res.body.eventId);
+  }
+}

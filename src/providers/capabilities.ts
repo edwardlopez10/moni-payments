@@ -1,0 +1,17 @@
+export const ProviderCapability = {
+  TOKENIZATION: 'TOKENIZATION',
+  REFUNDS: 'REFUNDS',
+  PARTIAL_REFUNDS: 'PARTIAL_REFUNDS',
+  RECURRING_PAYMENTS: 'RECURRING_PAYMENTS',
+  WEBHOOKS: 'WEBHOOKS',
+  WEBHOOK_SIGNATURE_VERIFICATION: 'WEBHOOK_SIGNATURE_VERIFICATION',
+  REDIRECT_CHECKOUT: 'REDIRECT_CHECKOUT',
+  EMBEDDED_CHECKOUT: 'EMBEDDED_CHECKOUT',
+  PAYMENT_STATUS_POLLING: 'PAYMENT_STATUS_POLLING',
+} as const;
+
+export type ProviderCapability =
+  (typeof ProviderCapability)[keyof typeof ProviderCapability];
+
+export const ALL_PROVIDER_CAPABILITIES: readonly ProviderCapability[] =
+  Object.values(ProviderCapability);

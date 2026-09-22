@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: moniveo
+          POSTGRES_PASSWORD: moniveo
+          POSTGRES_DB: moniveo_payments_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U moniveo -d moniveo_payments_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://moniveo:moniveo@localhost:5432/moniveo_payments_test
+      TEST_DATABASE_URL: postgresql://moniveo:moniveo@localhost:5432/moniveo_payments_test
+      FAKE_PROVIDER_API_KEY: ci-fake-api-key
+      FAKE_PROVIDER_WEBHOOK_SECRET: ci-fake-webhook-secret
+      EVENT_CALLBACK_SECRET: ci-callback-secret
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.4'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Apply migrations
+        run: pnpm db:deploy
+
+      - name: Test
+        run: pnpm test
+
+      - name: OpenAPI freshness check
+        run: pnpm openapi:check
+
+      - name: Domain boundary check
+        run: pnpm check:domain
+
+      - name: Forbidden PCI pattern grep
+        run: |
+          # Ignore documentation lines that forbid these fields.
+          if rg -n -i -e 'cardNumber|\bcvv\b|\bpan\b|track2' src prisma \
+            | rg -v -i 'never|forbid|prohibited|must not|do not|PCI|not store|absence|shaped'; then
+            echo "Forbidden PCI-related identifiers found in src/ or prisma/."
+            exit 1
+          fi
+          echo "PCI pattern grep passed."

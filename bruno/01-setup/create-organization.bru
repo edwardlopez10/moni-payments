@@ -1,0 +1,30 @@
+meta {
+  name: Create Organization
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/v1/organizations
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{apiKey}}
+  Idempotency-Key: bruno-org-1
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "externalId": "bruno-demo",
+    "name": "Bruno Demo Org"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("organizationId", res.body.id);
+  }
+}

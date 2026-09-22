@@ -1,0 +1,35 @@
+meta {
+  name: Create Second Payment
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/v1/payments
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{apiKey}}
+  Idempotency-Key: bruno-pay-2
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "organizationId": "{{organizationId}}",
+    "externalReference": "bruno-fee-2",
+    "customerReference": "customer-8821",
+    "amount": 8500,
+    "currency": "USD",
+    "description": "Bruno partial refund demo",
+    "metadata": { "fakeScenario": "processing" }
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("paymentId2", res.body.id);
+  }
+}

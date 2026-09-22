@@ -1,0 +1,35 @@
+meta {
+  name: Create Payment
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/v1/payments
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{apiKey}}
+  Idempotency-Key: bruno-pay-1
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "organizationId": "{{organizationId}}",
+    "externalReference": "bruno-fee-1",
+    "customerReference": "customer-8821",
+    "amount": 8500,
+    "currency": "USD",
+    "description": "Bruno demo charge",
+    "metadata": { "fakeScenario": "processing" }
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("paymentId", res.body.id);
+  }
+}

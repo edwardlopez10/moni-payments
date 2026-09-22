@@ -1,0 +1,1 @@
+CREATE DATABASE moniveo_payments_test;

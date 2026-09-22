@@ -1,0 +1,34 @@
+meta {
+  name: Create Payment Account
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/v1/organizations/{{organizationId}}/payment-accounts
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{apiKey}}
+  Idempotency-Key: bruno-acct-1
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "provider": "fake",
+    "providerMerchantId": "BRUNO-MERCHANT-001",
+    "isDefault": true,
+    "configuration": {
+      "checkoutMode": "REDIRECT",
+      "returnUrl": "http://localhost:3000/payments/return",
+      "cancelUrl": "http://localhost:3000/payments/cancel"
+    },
+    "credentialRefs": {
+      "apiKey": "env://FAKE_PROVIDER_API_KEY",
+      "webhookSecret": "env://FAKE_PROVIDER_WEBHOOK_SECRET"
+    }
+  }
+}

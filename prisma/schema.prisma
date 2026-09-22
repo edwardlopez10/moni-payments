@@ -1,0 +1,390 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SourceProduct {
+  RESIDENT
+  HEALTH
+  ENVIRONMENT
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum PaymentAccountStatus {
+  PENDING_CONFIGURATION
+  ACTIVE
+  DISABLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  AUTHORIZED
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  CHARGEBACK
+}
+
+enum PaymentAttemptStatus {
+  INITIATED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  EXPIRED
+}
+
+enum PaymentMethodType {
+  CARD
+  BANK_ACCOUNT
+  WALLET
+  OTHER
+}
+
+enum PaymentMethodStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+enum WebhookProcessingStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
+enum OutboxStatus {
+  PENDING
+  DELIVERING
+  DELIVERED
+  FAILED
+  DEAD
+}
+
+enum ServiceClientStatus {
+  ACTIVE
+  REVOKED
+}
+
+model Organization {
+  id            String             @id @default(uuid())
+  sourceProduct SourceProduct      @map("source_product")
+  externalId    String             @map("external_id")
+  name          String
+  status        OrganizationStatus @default(ACTIVE)
+  metadata      Json               @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  paymentAccounts    PaymentAccount[]
+  payments           Payment[]
+  paymentMethods     PaymentMethod[]
+  eventSubscriptions EventSubscription[]
+
+  @@unique([sourceProduct, externalId])
+  @@index([status])
+  @@map("organizations")
+}
+
+model ServiceClient {
+  id            String              @id @default(uuid())
+  name          String
+  sourceProduct SourceProduct       @map("source_product")
+  keyPrefix     String              @unique @map("key_prefix")
+  keyHash       String              @map("key_hash")
+  scopes        String[]            @default([])
+  status        ServiceClientStatus @default(ACTIVE)
+
+  lastUsedAt DateTime? @map("last_used_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  idempotencyKeys IdempotencyKey[]
+
+  @@index([status])
+  @@map("service_clients")
+}
+
+model PaymentAccount {
+  id                 String               @id @default(uuid())
+  organizationId     String               @map("organization_id")
+  organization       Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  provider           String
+  providerMerchantId String               @map("provider_merchant_id")
+  status             PaymentAccountStatus @default(PENDING_CONFIGURATION)
+  isDefault          Boolean              @default(false) @map("is_default")
+
+  configuration  Json @default("{}")
+  credentialRefs Json @default("{}") @map("credential_refs")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  payments Payment[]
+
+  @@unique([organizationId, provider, providerMerchantId])
+  @@index([organizationId, status])
+  @@map("payment_accounts")
+}
+
+model Payment {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  paymentAccountId String?         @map("payment_account_id")
+  paymentAccount   PaymentAccount? @relation(fields: [paymentAccountId], references: [id])
+
+  sourceProduct     SourceProduct @map("source_product")
+  externalReference String        @map("external_reference")
+  customerReference String        @map("customer_reference")
+
+  amount         Int    @db.Integer
+  currency       String @db.Char(3)
+  refundedAmount Int    @default(0) @map("refunded_amount")
+
+  status   PaymentStatus @default(PENDING)
+  provider String
+
+  providerPaymentId String? @map("provider_payment_id")
+  paymentMethodId   String? @map("payment_method_id")
+  paymentMethod     PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+
+  description String?
+  checkoutUrl String? @map("checkout_url")
+  metadata    Json    @default("{}")
+
+  failureCode    String? @map("failure_code")
+  failureMessage String? @map("failure_message")
+
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  authorizedAt DateTime? @map("authorized_at")
+  paidAt       DateTime? @map("paid_at")
+  failedAt     DateTime? @map("failed_at")
+  cancelledAt  DateTime? @map("cancelled_at")
+
+  attempts PaymentAttempt[]
+  refunds  Refund[]
+
+  @@unique([organizationId, externalReference])
+  @@unique([provider, providerPaymentId])
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, customerReference])
+  @@index([sourceProduct, createdAt])
+  @@map("payments")
+}
+
+model PaymentAttempt {
+  id        String  @id @default(uuid())
+  paymentId String  @map("payment_id")
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  attemptNumber Int    @map("attempt_number")
+  provider      String
+
+  providerPaymentId String?              @map("provider_payment_id")
+  status            PaymentAttemptStatus @default(INITIATED)
+
+  failureCode      String? @map("failure_code")
+  failureMessage   String? @map("failure_message")
+  providerMetadata Json    @default("{}") @map("provider_metadata")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@unique([paymentId, attemptNumber])
+  @@unique([provider, providerPaymentId])
+  @@index([paymentId, createdAt])
+  @@map("payment_attempts")
+}
+
+model PaymentMethod {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  customerReference String @map("customer_reference")
+  provider          String
+
+  providerPaymentMethodId String @map("provider_payment_method_id")
+
+  type   PaymentMethodType
+  status PaymentMethodStatus @default(ACTIVE)
+
+  brand           String?
+  last4           String? @db.Char(4)
+  expirationMonth Int?    @map("expiration_month")
+  expirationYear  Int?    @map("expiration_year")
+  holderName      String? @map("holder_name")
+
+  isDefault Boolean @default(false) @map("is_default")
+  metadata  Json    @default("{}")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  payments Payment[]
+
+  @@unique([provider, providerPaymentMethodId])
+  @@index([organizationId, customerReference, status])
+  @@map("payment_methods")
+}
+
+model Refund {
+  id        String  @id @default(uuid())
+  paymentId String  @map("payment_id")
+  payment   Payment @relation(fields: [paymentId], references: [id])
+
+  organizationId String @map("organization_id")
+
+  amount    Int     @db.Integer
+  currency  String  @db.Char(3)
+  isPartial Boolean @map("is_partial")
+
+  status   RefundStatus @default(PENDING)
+  provider String
+
+  providerRefundId  String? @map("provider_refund_id")
+  reason            String?
+  externalReference String? @map("external_reference")
+  metadata          Json    @default("{}")
+
+  failureCode    String? @map("failure_code")
+  failureMessage String? @map("failure_message")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@unique([provider, providerRefundId])
+  @@index([paymentId, createdAt])
+  @@index([organizationId, status])
+  @@map("refunds")
+}
+
+model WebhookEvent {
+  id       String @id @default(uuid())
+  provider String
+
+  providerEventId String  @map("provider_event_id")
+  eventType       String? @map("event_type")
+
+  payload   Json
+  rawBody   String  @map("raw_body")
+  headers   Json    @default("{}")
+  signature String?
+  verified  Boolean @default(false)
+
+  paymentId String? @map("payment_id")
+
+  processingStatus WebhookProcessingStatus @default(RECEIVED) @map("processing_status")
+  attempts         Int                     @default(0)
+  error            String?
+
+  receivedAt  DateTime  @default(now()) @map("received_at")
+  processedAt DateTime? @map("processed_at")
+  nextRetryAt DateTime? @map("next_retry_at")
+
+  @@unique([provider, providerEventId])
+  @@index([processingStatus, nextRetryAt])
+  @@index([paymentId])
+  @@map("webhook_events")
+}
+
+model IdempotencyKey {
+  id String @id @default(uuid())
+
+  serviceClientId String        @map("service_client_id")
+  serviceClient   ServiceClient @relation(fields: [serviceClientId], references: [id], onDelete: Cascade)
+
+  key                String
+  endpoint           String
+  requestFingerprint String @map("request_fingerprint")
+
+  status         String @default("IN_PROGRESS")
+  responseStatus Int?   @map("response_status")
+  responseBody   Json?  @map("response_body")
+
+  resourceType String? @map("resource_type")
+  resourceId   String? @map("resource_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+
+  @@unique([serviceClientId, key, endpoint])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+model EventSubscription {
+  id String @id @default(uuid())
+
+  sourceProduct  SourceProduct @map("source_product")
+  organizationId String?       @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  url        String
+  secretRef  String   @map("secret_ref")
+  eventTypes String[] @default([]) @map("event_types")
+  active     Boolean  @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sourceProduct, active])
+  @@map("event_subscriptions")
+}
+
+model OutboxEvent {
+  id String @id @default(uuid())
+
+  eventType String @map("event_type")
+  eventId   String @unique @map("event_id")
+
+  organizationId String        @map("organization_id")
+  sourceProduct  SourceProduct @map("source_product")
+  resourceType   String        @map("resource_type")
+  resourceId     String        @map("resource_id")
+
+  payload Json
+
+  subscriptionId String? @map("subscription_id")
+
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  lastError     String?      @map("last_error")
+  nextAttemptAt DateTime     @default(now()) @map("next_attempt_at")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  deliveredAt DateTime? @map("delivered_at")
+
+  @@index([status, nextAttemptAt])
+  @@index([resourceType, resourceId])
+  @@map("outbox_events")
+}

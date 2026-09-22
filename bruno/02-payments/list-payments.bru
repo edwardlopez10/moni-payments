@@ -1,0 +1,15 @@
+meta {
+  name: List Payments
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/v1/payments?organizationId={{organizationId}}&limit=10
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{apiKey}}
+}

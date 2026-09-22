@@ -1,0 +1,30 @@
+meta {
+  name: Partial Refund
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/v1/payments/{{paymentId2}}/refunds
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{apiKey}}
+  Idempotency-Key: bruno-rfnd-partial-1
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "amount": 2500,
+    "reason": "partial_adjustment"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("refundId", res.body.id);
+  }
+}

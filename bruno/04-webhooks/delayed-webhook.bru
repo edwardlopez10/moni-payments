@@ -1,0 +1,28 @@
+meta {
+  name: Delayed Send Webhook
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/dev/fake-provider/payments/{{paymentId}}/send-webhook
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "status": "PAID",
+    "delayMs": 500
+  }
+}
+
+script:post-response {
+  if (res.status === 202 && res.body.eventId) {
+    bru.setEnvVar("webhookEventId", res.body.eventId);
+  }
+}
