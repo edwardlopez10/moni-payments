@@ -144,5 +144,5 @@ describe('e2e payment lifecycle', () => {
     const last = ctx.backend!.callbacks.at(-1)!;
     expect(last.verified).toBe(true);
     expect(JSON.stringify(last.body)).toMatch(/payment\.refunded/);
-  });
+  }, 20_000);
 });

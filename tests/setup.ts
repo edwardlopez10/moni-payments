@@ -8,3 +8,9 @@ loadDotenv({ path: resolve(process.cwd(), '.env') });
 if (process.env.TEST_DATABASE_URL) {
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 }
+
+// CI has no .env. Leave the factory on env so existing env:// fixtures resolve.
+// Tests that need another backend set SECRETS_PROVIDER or the singleton themselves.
+if (!process.env.SECRETS_PROVIDER) {
+  process.env.SECRETS_PROVIDER = 'env';
+}

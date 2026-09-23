@@ -59,7 +59,7 @@ describe('secret store outage', () => {
     expect(duringOutage).toHaveLength(0);
     expect(duringOutage.some((row) => row.status === 'FAILED')).toBe(false);
 
-    setSecretsProviderForTests(undefined);
+    setSecretsProviderForTests(real);
 
     const retried = await app.inject({
       method: 'POST',
