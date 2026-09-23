@@ -26,9 +26,15 @@ body:json {
       "returnUrl": "http://localhost:3000/payments/return",
       "cancelUrl": "http://localhost:3000/payments/cancel"
     },
-    "credentialRefs": {
-      "apiKey": "env://FAKE_PROVIDER_API_KEY",
-      "webhookSecret": "env://FAKE_PROVIDER_WEBHOOK_SECRET"
-    }
+    "credentials": {
+      "apiKey": "dev-fake-api-key",
+    "webhookSecret": "dev-fake-webhook-secret"
   }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("paymentAccountId", res.body.id);
+  }
+}
 }

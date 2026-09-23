@@ -6,9 +6,11 @@ import {
   setProviderRegistryForTests,
 } from '../../src/providers/registry';
 import {
+  activatePaymentAccount,
   authHeaders,
   closeTestApp,
   createTestApp,
+  fakeAccountCredentials,
   type TestAppContext,
 } from '../helpers/app';
 
@@ -47,7 +49,7 @@ describe('e2e multi-tenant provider selection', () => {
     const organizationA = orgA.json().id as string;
     const organizationB = orgB.json().id as string;
 
-    await ctx.app.inject({
+    const accountA = await ctx.app.inject({
       method: 'POST',
       url: `/v1/organizations/${organizationA}/payment-accounts`,
       headers: authHeaders(ctx.apiKey, 'mt-acct-a'),
@@ -55,13 +57,10 @@ describe('e2e multi-tenant provider selection', () => {
         provider: 'fake',
         providerMerchantId: 'MERCHANT-A',
         isDefault: true,
-        credentialRefs: {
-          apiKey: 'env://FAKE_PROVIDER_API_KEY',
-          webhookSecret: 'env://FAKE_PROVIDER_WEBHOOK_SECRET',
-        },
+        credentials: fakeAccountCredentials(),
       },
     });
-    await ctx.app.inject({
+    const accountB = await ctx.app.inject({
       method: 'POST',
       url: `/v1/organizations/${organizationB}/payment-accounts`,
       headers: authHeaders(ctx.apiKey, 'mt-acct-b'),
@@ -69,12 +68,25 @@ describe('e2e multi-tenant provider selection', () => {
         provider: 'fake_b',
         providerMerchantId: 'MERCHANT-B',
         isDefault: true,
-        credentialRefs: {
-          apiKey: 'env://FAKE_PROVIDER_API_KEY',
-          webhookSecret: 'env://FAKE_PROVIDER_WEBHOOK_SECRET',
-        },
+        credentials: fakeAccountCredentials(),
       },
     });
+    expect(accountA.statusCode).toBe(201);
+    expect(accountB.statusCode).toBe(201);
+    await activatePaymentAccount(
+      ctx.app,
+      ctx.apiKey,
+      organizationA,
+      accountA.json().id as string,
+      'mt-acct-a',
+    );
+    await activatePaymentAccount(
+      ctx.app,
+      ctx.apiKey,
+      organizationB,
+      accountB.json().id as string,
+      'mt-acct-b',
+    );
 
     const payA = await ctx.app.inject({
       method: 'POST',

@@ -19,8 +19,8 @@ Payment method creation accepts only a `setupToken` from provider-hosted tokeniz
 - Full card numbers (PAN)
 - Card verification values (CVV/CVC)
 - Magnetic stripe or EMV track data
-- Provider secret keys (only `env://` references on payment accounts)
-- Plaintext API keys after initial creation
+- Provider secret values (PostgreSQL stores `secretRef` only; the bundle lives in the secret store)
+- Plaintext API keys in the database, logs, or API responses
 
 CI greps `src/` and `prisma/` for `cardNumber`, `cvv`, `pan`, and `track2`. Domain-boundary rules forbid introducing card-collection endpoints.
 

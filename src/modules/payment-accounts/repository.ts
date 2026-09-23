@@ -19,6 +19,9 @@ export async function createPaymentAccountRow(
     isDefault: boolean;
     configuration: Prisma.InputJsonValue;
     credentialRefs: Prisma.InputJsonValue;
+    secretRef?: string | null;
+    credentialsUpdatedAt?: Date | null;
+    credentialsPresentKeys?: Prisma.InputJsonValue;
   },
   client?: TransactionClient,
 ): Promise<PaymentAccount> {

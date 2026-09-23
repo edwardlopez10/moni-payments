@@ -54,7 +54,14 @@ export async function createPaymentAccountFactory(
     provider?: string;
     providerMerchantId?: string;
     isDefault?: boolean;
-    status?: 'ACTIVE' | 'PENDING_CONFIGURATION' | 'DISABLED';
+    status?:
+      | 'NOT_CONFIGURED'
+      | 'ONBOARDING'
+      | 'PENDING_VERIFICATION'
+      | 'ACTIVE'
+      | 'SUSPENDED'
+      | 'DISABLED'
+      | 'REJECTED';
   } = {},
 ) {
   return prisma.paymentAccount.create({

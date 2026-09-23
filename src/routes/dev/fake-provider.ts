@@ -4,10 +4,12 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import { prisma } from '../../db/prisma';
-import { AppError, ErrorCode } from '../../domain/errors';
+import { AppError, ErrorCode, isAppError } from '../../domain/errors';
 import { processWebhookEvent } from '../../modules/webhooks/processor';
 import { ingestWebhook } from '../../modules/webhooks/service';
 import { getEventPublisher } from '../../platform/events/publisher';
+import { loadAccountCredentialBundle } from '../../modules/payment-accounts/credentials';
+import { webhookCandidateStatuses } from '../../modules/payment-accounts/schema';
 import { getSecretsProvider } from '../../platform/secrets';
 import {
   FAKE_SIGNATURE_HEADER,
@@ -16,17 +18,19 @@ import {
 
 async function resolveWebhookSecret(provider: string): Promise<string> {
   const account = await prisma.paymentAccount.findFirst({
-    where: { provider, status: { in: ['ACTIVE', 'PENDING_CONFIGURATION'] } },
+    where: { provider, status: { in: [...webhookCandidateStatuses] } },
   });
-  const refs =
-    account?.credentialRefs && typeof account.credentialRefs === 'object'
-      ? (account.credentialRefs as Record<string, string>)
-      : {};
-  if (typeof refs.webhookSecret === 'string') {
+  if (account) {
     try {
-      return await getSecretsProvider().resolve(refs.webhookSecret);
-    } catch {
-      // fall through
+      const bundle = await loadAccountCredentialBundle(account, getSecretsProvider());
+      if (bundle.webhookSecret) {
+        return bundle.webhookSecret;
+      }
+    } catch (error) {
+      if (isAppError(error) && error.code === ErrorCode.PROVIDER_CONFIGURATION_UNAVAILABLE) {
+        throw error;
+      }
+      // fall through to the local development secret
     }
   }
   return process.env.FAKE_PROVIDER_WEBHOOK_SECRET ?? 'test-fake-webhook-secret';

@@ -1,0 +1,23 @@
+meta {
+  name: Activate Payment Account
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/v1/organizations/{{organizationId}}/payment-accounts/{{paymentAccountId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{apiKey}}
+  Idempotency-Key: bruno-acct-active
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "status": "ACTIVE"
+  }
+}

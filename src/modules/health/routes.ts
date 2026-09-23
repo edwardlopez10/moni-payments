@@ -67,7 +67,8 @@ async function checkMigrations(pool: Pool): Promise<z.infer<typeof checkSchema>>
     const pending = await pool.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count
        FROM _prisma_migrations
-       WHERE finished_at IS NULL`,
+       WHERE finished_at IS NULL
+         AND rolled_back_at IS NULL`,
     );
     const count = Number(pending.rows[0]?.count ?? '0');
     return count === 0

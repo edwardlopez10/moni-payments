@@ -66,9 +66,11 @@ export async function createTestApp(
     });
   }
 
+  const nodeEnv = options.nodeEnv ?? 'test';
   const env = loadEnv({
     ...process.env,
-    NODE_ENV: options.nodeEnv ?? 'test',
+    NODE_ENV: nodeEnv,
+    ...(nodeEnv === 'production' && !process.env.APP_ENV ? { APP_ENV: 'development' } : {}),
     LOG_LEVEL: 'silent',
     DATABASE_URL: process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL,
     DISPATCHER_INTERVAL_MS: '0',
@@ -108,6 +110,33 @@ export function authHeaders(apiKey: string, idempotencyKey?: string): Record<str
   return headers;
 }
 
+export function fakeAccountCredentials(): { apiKey: string; webhookSecret: string } {
+  return {
+    apiKey: process.env.FAKE_PROVIDER_API_KEY ?? 'dev-fake-api-key',
+    webhookSecret: process.env.FAKE_PROVIDER_WEBHOOK_SECRET ?? 'dev-fake-webhook-secret',
+  };
+}
+
+export async function activatePaymentAccount(
+  app: AppInstance,
+  apiKey: string,
+  organizationId: string,
+  accountId: string,
+  idempotencyPrefix: string,
+): Promise<void> {
+  for (const [index, status] of ['PENDING_VERIFICATION', 'ACTIVE'].entries()) {
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/v1/organizations/${organizationId}/payment-accounts/${accountId}`,
+      headers: authHeaders(apiKey, `${idempotencyPrefix}-status-${index}`),
+      payload: { status },
+    });
+    if (response.statusCode >= 400) {
+      throw new Error(`Failed to set account status ${status}: ${response.body}`);
+    }
+  }
+}
+
 export async function seedOrgWithFakeAccount(
   app: AppInstance,
   apiKey: string,
@@ -129,15 +158,14 @@ export async function seedOrgWithFakeAccount(
       provider,
       providerMerchantId: `M-${externalId}`,
       isDefault: true,
-      credentialRefs: {
-        apiKey: 'env://FAKE_PROVIDER_API_KEY',
-        webhookSecret: 'env://FAKE_PROVIDER_WEBHOOK_SECRET',
-      },
+      credentials: fakeAccountCredentials(),
     },
   });
   if (account.statusCode >= 400) {
     throw new Error(`Failed to create account: ${account.body}`);
   }
+  const accountId = account.json().id as string;
+  await activatePaymentAccount(app, apiKey, organizationId, accountId, `acct-${externalId}`);
   return organizationId;
 }
 

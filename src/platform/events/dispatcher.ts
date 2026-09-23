@@ -1,6 +1,7 @@
 import type { OutboxEvent } from '@prisma/client';
 
 import { nextAttemptDelayMs } from '../../domain/events';
+import { isAppError, ErrorCode } from '../../domain/errors';
 import { prisma } from '../../db/prisma';
 import { processWebhookEvent } from '../../modules/webhooks/processor';
 import { listDueWebhookEvents } from '../../modules/webhooks/repository';
@@ -137,14 +138,28 @@ export class EventDispatcher {
         delivered += 1;
       } catch (error) {
         const attempts = claimed.attempts + 1;
-        const delay = nextAttemptDelayMs(attempts);
-        const message = error instanceof Error ? error.message : 'delivery failed';
+        const unavailable =
+          isAppError(error) && error.code === ErrorCode.PROVIDER_CONFIGURATION_UNAVAILABLE;
+        const permanent =
+          isAppError(error) && error.code === ErrorCode.PROVIDER_CONFIGURATION_ERROR;
+        const delay = unavailable || !permanent ? nextAttemptDelayMs(attempts) : null;
+        const message = isAppError(error)
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'delivery failed';
+        if (permanent) {
+          this.logger.error(
+            { outboxId: claimed.id, code: ErrorCode.PROVIDER_CONFIGURATION_ERROR },
+            'Secret store configuration error; delivery will not be retried',
+          );
+        }
         await prisma.outboxEvent.update({
           where: { id: claimed.id },
           data: {
             status: delay === null ? 'DEAD' : 'FAILED',
             attempts,
-            lastError: message,
+            lastError: message.slice(0, 500),
             nextAttemptAt: delay === null ? claimed.nextAttemptAt : new Date(Date.now() + delay),
           },
         });

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Writable } from 'node:stream';
 
-import { createLogger } from '../../src/platform/logging/logger';
+import { createLogger, LOG_REDACT_PATHS } from '../../src/platform/logging/logger';
 import { BODY_LIMIT_BYTES } from '../../src/platform/security/plugins';
 import { FAKE_SIGNATURE_HEADER, signFakeWebhook } from '../../src/providers/fake';
 import {
@@ -93,24 +93,20 @@ describe('security hardening', () => {
         {
           level: 'info',
           redact: {
-            paths: [
-              'authorization',
-              'apiKey',
-              'webhookSecret',
-              'credentials',
-              'setupToken',
-              'rawBody',
-            ],
+            paths: [...LOG_REDACT_PATHS],
             censor: '[REDACTED]',
           },
         },
         stream,
       );
+      const canary = 'sec-canary-do-not-leak';
       destLogger.info({
-        authorization: 'Bearer secret-key',
+        authorization: `Bearer ${canary}`,
         apiKey: 'mvp_x_secret',
         webhookSecret: 'whsec',
-        credentials: { apiKey: 'x' },
+        credentials: { apiKey: canary },
+        clientSecret: canary,
+        SecretString: canary,
         setupToken: 'tok',
         rawBody: 'sensitive',
         safe: 'ok',
@@ -118,7 +114,8 @@ describe('security hardening', () => {
       await new Promise((r) => setTimeout(r, 20));
       const joined = chunks.join('');
       expect(joined).toContain('[REDACTED]');
-      expect(joined).not.toContain('Bearer secret-key');
+      expect(joined).not.toContain(canary);
+      expect(joined).not.toContain('Bearer ');
       expect(joined).not.toContain('mvp_x_secret');
       expect(joined).not.toContain('whsec');
       expect(joined).toContain('"safe":"ok"');

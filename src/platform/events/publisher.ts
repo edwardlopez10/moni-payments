@@ -1,6 +1,7 @@
 import type { EventSubscription, OutboxEvent, SourceProduct } from '@prisma/client';
 
 import { prisma } from '../../db/prisma';
+import { AppError, ErrorCode } from '../../domain/errors';
 import { getSecretsProvider } from '../secrets';
 import { signCallbackBody } from './signing';
 
@@ -39,8 +40,16 @@ export async function resolveEventSubscription(input: {
 export class HttpEventPublisher implements EventPublisher {
   constructor(
     private readonly fetchImpl: typeof fetch = fetch,
-    private readonly resolveSecret: (ref: string) => Promise<string> = (ref) =>
-      getSecretsProvider().resolve(ref),
+    private readonly resolveSecret: (ref: string) => Promise<string> = async (ref) => {
+      const value = await getSecretsProvider().get<unknown>(ref);
+      if (typeof value !== 'string' || value.length === 0) {
+        throw new AppError(
+          ErrorCode.PROVIDER_CONFIGURATION_ERROR,
+          'Callback secret is missing or malformed.',
+        );
+      }
+      return value;
+    },
   ) {}
 
   async deliver(event: OutboxEvent): Promise<void> {

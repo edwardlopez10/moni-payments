@@ -20,9 +20,13 @@ enum OrganizationStatus {
 }
 
 enum PaymentAccountStatus {
-  PENDING_CONFIGURATION
+  NOT_CONFIGURED
+  ONBOARDING
+  PENDING_VERIFICATION
   ACTIVE
+  SUSPENDED
   DISABLED
+  REJECTED
 }
 
 enum PaymentStatus {
@@ -86,6 +90,26 @@ enum ServiceClientStatus {
   REVOKED
 }
 
+enum CredentialAuditActorType {
+  SERVICE_CLIENT
+  OPERATOR
+  SYSTEM
+}
+
+enum CredentialAuditOperation {
+  PUT
+  ROTATION
+  DELETE
+  EXISTS
+  GET
+  LIFECYCLE
+}
+
+enum CredentialAuditOutcome {
+  SUCCESS
+  FAILURE
+}
+
 model Organization {
   id            String             @id @default(uuid())
   sourceProduct SourceProduct      @map("source_product")
@@ -134,11 +158,15 @@ model PaymentAccount {
 
   provider           String
   providerMerchantId String               @map("provider_merchant_id")
-  status             PaymentAccountStatus @default(PENDING_CONFIGURATION)
+  status             PaymentAccountStatus @default(NOT_CONFIGURED)
   isDefault          Boolean              @default(false) @map("is_default")
 
-  configuration  Json @default("{}")
-  credentialRefs Json @default("{}") @map("credential_refs")
+  configuration          Json      @default("{}")
+  credentialRefs         Json      @default("{}") @map("credential_refs")
+  /// Service-generated secret reference. Never returned by the API.
+  secretRef              String?   @unique @map("secret_ref")
+  credentialsUpdatedAt   DateTime? @map("credentials_updated_at")
+  credentialsPresentKeys Json      @default("[]") @map("credentials_present_keys")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -387,4 +415,21 @@ model OutboxEvent {
   @@index([status, nextAttemptAt])
   @@index([resourceType, resourceId])
   @@map("outbox_events")
+}
+
+/// Append-only credential access and lifecycle record. No secret values.
+model CredentialAuditEvent {
+  id               String                     @id @default(uuid())
+  organizationId   String                     @map("organization_id")
+  paymentAccountId String                     @map("payment_account_id")
+  actorType        CredentialAuditActorType   @map("actor_type")
+  actorId          String                     @map("actor_id")
+  operation        CredentialAuditOperation
+  outcome          CredentialAuditOutcome
+  requestId        String?                    @map("request_id")
+  createdAt        DateTime                   @default(now()) @map("created_at")
+
+  @@index([organizationId, createdAt])
+  @@index([paymentAccountId, createdAt])
+  @@map("credential_audit_events")
 }

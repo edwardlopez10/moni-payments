@@ -6,7 +6,8 @@ import {
   PaymentStatus,
   transitionPayment,
 } from '../../domain/payment-status';
-import { nextAttemptDelayMs } from '../../domain/events';
+import { DELIVERY_BACKOFF_MS, nextAttemptDelayMs } from '../../domain/events';
+import { ErrorCode, isAppError } from '../../domain/errors';
 import { paymentOutboxPayload, enqueueOutboxEvent } from '../../platform/events/outbox';
 import type { NormalizedWebhookEvent } from '../../providers/types';
 import * as repo from './repository';
@@ -240,15 +241,24 @@ export async function processWebhookEvent(webhookId: string): Promise<void> {
       processedAt: new Date(),
     });
   } catch (error) {
-    const delay = nextAttemptDelayMs(claimed.attempts);
+    const unavailable =
+      isAppError(error) && error.code === ErrorCode.PROVIDER_CONFIGURATION_UNAVAILABLE;
+    const permanent =
+      isAppError(error) && error.code === ErrorCode.PROVIDER_CONFIGURATION_ERROR;
+    const scheduled = nextAttemptDelayMs(Math.max(claimed.attempts, 1));
+    const delay = permanent
+      ? null
+      : unavailable && scheduled === null
+        ? DELIVERY_BACKOFF_MS[0]
+        : scheduled;
+    const message = isAppError(error)
+      ? error.message
+      : 'processing failed';
     await repo.updateWebhookEvent(webhookId, {
       processingStatus: 'FAILED',
-      error: error instanceof Error ? error.message : 'processing failed',
+      error: message,
       nextRetryAt: delay === null ? null : new Date(Date.now() + delay),
     });
-    if (delay === null) {
-      // Budget exhausted — leave FAILED with no nextRetryAt so dispatcher skips it.
-    }
   }
 }
 

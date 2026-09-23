@@ -17,6 +17,10 @@ describe('provider selection', () => {
   const registry = createRegistry([new FakePaymentProvider()]);
   const secrets = {
     schemes: ['env'] as const,
+    put: async () => {},
+    get: async <T>() => 'resolved-secret' as T,
+    delete: async () => {},
+    exists: async () => true,
     resolve: async () => 'resolved-secret',
   };
 
@@ -99,5 +103,66 @@ describe('provider selection', () => {
         { registry: limitedRegistry, secrets },
       ),
     ).rejects.toBeInstanceOf(AppError);
+  });
+
+  it('rejects a suspended account instead of falling back to another account', async () => {
+    vi.mocked(paymentAccountRepo.findPaymentAccountById).mockResolvedValue({
+      id: 'acct-suspended',
+      organizationId: 'org-1',
+      provider: 'fake',
+      providerMerchantId: 'M-1',
+      status: 'SUSPENDED',
+      isDefault: false,
+      configuration: {},
+      secretRef: 'memory://acct-suspended',
+      credentialRefs: { bundle: 'memory://acct-suspended' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+    vi.mocked(paymentAccountRepo.findDefaultActiveAccount).mockClear();
+
+    await expect(
+      selectProvider(
+        { organizationId: 'org-1', paymentAccountId: 'acct-suspended', requestId: 'r1' },
+        { registry, secrets },
+      ),
+    ).rejects.toMatchObject({
+      code: ErrorCode.PROVIDER_CONFIGURATION_ERROR,
+      message: 'Payment account is not ACTIVE.',
+    });
+    expect(paymentAccountRepo.findDefaultActiveAccount).not.toHaveBeenCalled();
+  });
+
+  it('propagates a secret-store outage before a provider call', async () => {
+    vi.mocked(paymentAccountRepo.findPaymentAccountById).mockResolvedValue({
+      id: 'acct-1',
+      organizationId: 'org-1',
+      provider: 'fake',
+      providerMerchantId: 'M-1',
+      status: 'ACTIVE',
+      isDefault: true,
+      configuration: {},
+      secretRef: 'awssm://moniveo-payments/test/orgs/org-1/payment-accounts/acct-1',
+      credentialRefs: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
+
+    const unavailable = {
+      ...secrets,
+      get: async () => {
+        throw new AppError(
+          ErrorCode.PROVIDER_CONFIGURATION_UNAVAILABLE,
+          'Secret store temporarily unavailable.',
+        );
+      },
+    };
+
+    await expect(
+      selectProvider(
+        { organizationId: 'org-1', paymentAccountId: 'acct-1', requestId: 'r1' },
+        { registry, secrets: unavailable },
+      ),
+    ).rejects.toMatchObject({ code: ErrorCode.PROVIDER_CONFIGURATION_UNAVAILABLE });
   });
 });

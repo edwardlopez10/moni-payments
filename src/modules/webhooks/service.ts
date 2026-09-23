@@ -1,8 +1,10 @@
 import type { Prisma } from '@prisma/client';
 import { Prisma as PrismaNamespace } from '@prisma/client';
 
-import { AppError, ErrorCode } from '../../domain/errors';
+import { AppError, ErrorCode, isAppError } from '../../domain/errors';
+import { createLogger } from '../../platform/logging/logger';
 import { getSecretsProvider } from '../../platform/secrets';
+import { loadAccountCredentialBundle } from '../payment-accounts/credentials';
 import { ProviderCapability } from '../../providers/capabilities';
 import { getProviderRegistry } from '../../providers/registry';
 import type {
@@ -37,17 +39,26 @@ async function buildWebhookContext(providerKey: string): Promise<WebhookContext>
   const candidateAccounts = [];
 
   for (const account of accounts) {
-    const refs =
-      account.credentialRefs && typeof account.credentialRefs === 'object'
-        ? (account.credentialRefs as Record<string, string>)
-        : {};
     let signingSecret: string | undefined;
-    if (typeof refs.webhookSecret === 'string') {
-      try {
-        signingSecret = await secrets.resolve(refs.webhookSecret);
-      } catch {
-        signingSecret = undefined;
+    try {
+      const bundle = await loadAccountCredentialBundle(account, secrets);
+      if (bundle.webhookSecret) {
+        signingSecret = bundle.webhookSecret;
       }
+    } catch (error) {
+      if (isAppError(error) && error.code === ErrorCode.PROVIDER_CONFIGURATION_UNAVAILABLE) {
+        throw error;
+      }
+      if (isAppError(error) && error.code === ErrorCode.PROVIDER_CONFIGURATION_ERROR) {
+        createLogger({
+          NODE_ENV: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+          LOG_LEVEL: 'error',
+        }).error(
+          { paymentAccountId: account.id, code: error.code },
+          'Secret store configuration error while loading webhook credentials',
+        );
+      }
+      signingSecret = undefined;
     }
     candidateAccounts.push({
       paymentAccountId: account.id,

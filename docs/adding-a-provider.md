@@ -68,17 +68,17 @@ runPaymentProviderContract(() => new PagaditoProvider(mockClient));
 
 The shared suite covers create, refund, webhook verification, and capability declarations. Use recorded HTTP fixtures rather than live sandboxes in CI.
 
-## 6. Document credential reference keys
+## 6. Document credential field names
 
-Document the `credentialRefs` keys the adapter expects when creating a payment account:
+Document the credential field names the adapter reads from the secret bundle. Callers send those values on create, patch, or rotate. They do not send references, and they do not choose where the secret is stored. The service writes the bundle and keeps only `secretRef`.
 
-| Key | Description | Example reference |
-| --- | --- | --- |
-| `apiKey` | Pagadito API credential | `env://PAGADITO_API_KEY` |
-| `webhookSecret` | HMAC signing secret for webhooks | `env://PAGADITO_WEBHOOK_SECRET` |
-| `merchantUid` | Pagadito merchant identifier | stored in `providerMerchantId` on the account |
+| Key | Description |
+| --- | --- |
+| `apiKey` | Pagadito API credential |
+| `webhookSecret` | HMAC signing secret for webhooks |
+| `merchantUid` | Pagadito merchant identifier, also stored in `providerMerchantId` on the account |
 
-Products create accounts via `POST /v1/organizations/:id/payment-accounts` with `provider: "pagadito"` and the reference map above.
+Products create accounts via `POST /v1/organizations/:id/payment-accounts` with `provider: "pagadito"` and a `credentials` object containing those values.
 
 ## Review heuristic
 

@@ -22,6 +22,7 @@ describe('ERROR_HTTP_STATUS', () => {
       INVALID_PAYMENT_METHOD: 402,
       CAPABILITY_NOT_SUPPORTED: 422,
       PROVIDER_CONFIGURATION_ERROR: 422,
+      PROVIDER_CONFIGURATION_UNAVAILABLE: 503,
       CURRENCY_NOT_SUPPORTED: 422,
       PROVIDER_UNAVAILABLE: 502,
       RATE_LIMITED: 429,
@@ -40,6 +41,24 @@ describe('toErrorBody', () => {
   it('includes requestId on every body', () => {
     const { body } = toErrorBody(new AppError(ErrorCode.PAYMENT_NOT_FOUND, 'missing'), 'req-1');
     expect(body.error.requestId).toBe('req-1');
+  });
+
+  it('maps PROVIDER_CONFIGURATION_UNAVAILABLE to 503 and keeps permanent config errors at 422', () => {
+    const unavailable = new AppError(
+      ErrorCode.PROVIDER_CONFIGURATION_UNAVAILABLE,
+      'Secret store temporarily unavailable.',
+    );
+    const permanent = new AppError(
+      ErrorCode.PROVIDER_CONFIGURATION_ERROR,
+      'Secret reference could not be resolved (missing).',
+    );
+    expect(unavailable.statusCode).toBe(503);
+    expect(permanent.statusCode).toBe(422);
+
+    const { statusCode, body } = toErrorBody(unavailable, 'req-unavailable');
+    expect(statusCode).toBe(503);
+    expect(body.error.code).toBe('PROVIDER_CONFIGURATION_UNAVAILABLE');
+    expect(body.error.requestId).toBe('req-unavailable');
   });
 
   it('maps unmapped throws to INTERNAL_ERROR without leaking the original message', () => {

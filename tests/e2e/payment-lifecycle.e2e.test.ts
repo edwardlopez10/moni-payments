@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
+  activatePaymentAccount,
   authHeaders,
   closeTestApp,
   createTestApp,
+  fakeAccountCredentials,
   type TestAppContext,
 } from '../helpers/app';
 
@@ -38,13 +40,18 @@ describe('e2e payment lifecycle', () => {
         provider: 'fake',
         providerMerchantId: 'E2E-MERCHANT',
         isDefault: true,
-        credentialRefs: {
-          apiKey: 'env://FAKE_PROVIDER_API_KEY',
-          webhookSecret: 'env://FAKE_PROVIDER_WEBHOOK_SECRET',
-        },
+        credentials: fakeAccountCredentials(),
       },
     });
     expect(account.statusCode).toBe(201);
+    expect(account.json().status).toBe('ONBOARDING');
+    await activatePaymentAccount(
+      ctx.app,
+      ctx.apiKey,
+      organizationId,
+      account.json().id as string,
+      'e2e-acct',
+    );
 
     const createPayment = await ctx.app.inject({
       method: 'POST',

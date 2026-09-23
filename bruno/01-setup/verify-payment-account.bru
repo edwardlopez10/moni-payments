@@ -1,0 +1,23 @@
+meta {
+  name: Mark Payment Account Pending Verification
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{baseUrl}}/v1/organizations/{{organizationId}}/payment-accounts/{{paymentAccountId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{apiKey}}
+  Idempotency-Key: bruno-acct-verify
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "status": "PENDING_VERIFICATION"
+  }
+}

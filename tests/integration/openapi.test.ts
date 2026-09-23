@@ -52,7 +52,9 @@ describe('OpenAPI /docs in production', () => {
   let app: AppInstance;
 
   beforeAll(async () => {
-    app = await buildApp({ env: testEnv({ NODE_ENV: 'production' }) });
+    app = await buildApp({
+      env: testEnv({ NODE_ENV: 'production', APP_ENV: process.env.APP_ENV ?? 'development' }),
+    });
     await app.ready();
   });
 

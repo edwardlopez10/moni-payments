@@ -1,10 +1,8 @@
 import type { PaymentAccount } from '@prisma/client';
 
 import { AppError, ErrorCode } from '../../domain/errors';
-import {
-  getSecretsProvider,
-  type SecretsProvider,
-} from '../../platform/secrets';
+import { getSecretsProvider, type SecretsProvider } from '../../platform/secrets';
+import { loadAccountCredentialBundle } from '../payment-accounts/credentials';
 import type { ProviderCapability } from '../../providers/capabilities';
 import {
   getProviderRegistry,
@@ -34,17 +32,6 @@ function asStringRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function asCredentialRefs(value: unknown): Record<string, string> {
-  const obj = asStringRecord(value);
-  const refs: Record<string, string> = {};
-  for (const [key, entry] of Object.entries(obj)) {
-    if (typeof entry === 'string') {
-      refs[key] = entry;
-    }
-  }
-  return refs;
-}
-
 export async function selectProvider(
   input: SelectProviderInput,
   deps: {
@@ -64,15 +51,20 @@ export async function selectProvider(
         'Payment account not found for organization.',
       );
     }
+    if (account.status !== 'ACTIVE') {
+      throw new AppError(
+        ErrorCode.PROVIDER_CONFIGURATION_ERROR,
+        'Payment account is not ACTIVE.',
+      );
+    }
   } else {
     account = await paymentAccountRepo.findDefaultActiveAccount(input.organizationId);
-  }
-
-  if (!account || account.status !== 'ACTIVE') {
-    throw new AppError(
-      ErrorCode.PROVIDER_CONFIGURATION_ERROR,
-      'Organization has no usable ACTIVE payment account.',
-    );
+    if (!account) {
+      throw new AppError(
+        ErrorCode.PROVIDER_CONFIGURATION_ERROR,
+        'Organization has no usable ACTIVE payment account.',
+      );
+    }
   }
 
   const provider = registry.get(account.provider);
@@ -91,11 +83,7 @@ export async function selectProvider(
     );
   }
 
-  const refs = asCredentialRefs(account.credentialRefs);
-  const credentials: Record<string, string> = {};
-  for (const [key, reference] of Object.entries(refs)) {
-    credentials[key] = await secrets.resolve(reference);
-  }
+  const credentials = await loadAccountCredentialBundle(account, secrets);
 
   const context: ProviderContext = {
     organizationId: input.organizationId,

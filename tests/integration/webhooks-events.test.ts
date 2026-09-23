@@ -4,36 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { FAKE_SIGNATURE_HEADER, signFakeWebhook } from '../../src/providers/fake';
 import { verifyCallbackSignature } from '../../src/platform/events/signing';
 import { setEventPublisherForTests, HttpEventPublisher } from '../../src/platform/events/publisher';
-import { authHeaders, createTestApp } from '../helpers/api';
-
-async function seedOrgAccount(
-  app: Awaited<ReturnType<typeof createTestApp>>['app'],
-  apiKey: string,
-  externalId: string,
-) {
-  const org = await app.inject({
-    method: 'POST',
-    url: '/v1/organizations',
-    headers: authHeaders(apiKey, `wh-org-${externalId}`),
-    payload: { externalId, name: externalId },
-  });
-  const organizationId = org.json().id as string;
-  await app.inject({
-    method: 'POST',
-    url: `/v1/organizations/${organizationId}/payment-accounts`,
-    headers: authHeaders(apiKey, `wh-acct-${externalId}`),
-    payload: {
-      provider: 'fake',
-      providerMerchantId: `M-${externalId}`,
-      isDefault: true,
-      credentialRefs: {
-        apiKey: 'env://FAKE_PROVIDER_API_KEY',
-        webhookSecret: 'env://FAKE_PROVIDER_WEBHOOK_SECRET',
-      },
-    },
-  });
-  return organizationId;
-}
+import { authHeaders, createTestApp, seedOrgWithFakeAccount } from '../helpers/api';
 
 describe('webhooks and events', () => {
   let app: Awaited<ReturnType<typeof createTestApp>>['app'];
@@ -49,7 +20,7 @@ describe('webhooks and events', () => {
     app = ctx.app;
     prisma = ctx.prisma;
     apiKey = ctx.apiKey;
-    organizationId = await seedOrgAccount(app, apiKey, 'wh-org');
+    organizationId = await seedOrgWithFakeAccount(app, apiKey, 'wh-org');
   });
 
   afterAll(async () => {

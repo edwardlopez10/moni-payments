@@ -3,6 +3,7 @@ import type { Prisma, WebhookEvent, WebhookProcessingStatus } from '@prisma/clie
 import { prisma } from '../../db/prisma';
 import type { TransactionClient } from '../../db/transaction';
 import { withTransaction } from '../../db/transaction';
+import { webhookCandidateStatuses } from '../payment-accounts/schema';
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -90,7 +91,7 @@ export async function listDueWebhookEvents(limit: number): Promise<WebhookEvent[
         { processingStatus: 'RECEIVED' },
         {
           processingStatus: 'FAILED',
-          OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: new Date() } }],
+          nextRetryAt: { lte: new Date() },
         },
       ],
     },
@@ -122,7 +123,7 @@ export async function findRefundByProviderIds(
 
 export async function listCandidateAccounts(provider: string) {
   return prisma.paymentAccount.findMany({
-    where: { provider, status: { in: ['ACTIVE', 'PENDING_CONFIGURATION'] } },
+    where: { provider, status: { in: [...webhookCandidateStatuses] } },
   });
 }
 

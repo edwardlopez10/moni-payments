@@ -9,6 +9,7 @@ import {
   patchPaymentAccountBodySchema,
   paymentAccountListResponseSchema,
   paymentAccountResponseSchema,
+  rotatePaymentAccountCredentialsBodySchema,
 } from './schema';
 
 function requireService(ctx: ServiceContext | undefined): ServiceContext {
@@ -73,6 +74,25 @@ export const paymentAccountRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     async (request) =>
       paymentAccountService.patchPaymentAccount(
+        request.params.id,
+        request.params.accountId,
+        request.body,
+        requireService(request.serviceContext),
+      ),
+  );
+
+  app.post(
+    '/v1/organizations/:id/payment-accounts/:accountId/credentials/rotate',
+    {
+      schema: {
+        tags: ['Payment Accounts'],
+        params: accountParamsSchema,
+        body: rotatePaymentAccountCredentialsBodySchema,
+        response: { 200: paymentAccountResponseSchema },
+      },
+    },
+    async (request) =>
+      paymentAccountService.rotatePaymentAccountCredentials(
         request.params.id,
         request.params.accountId,
         request.body,

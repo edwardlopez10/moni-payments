@@ -2,6 +2,7 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 
 import { AppError, ErrorCode } from '../../domain/errors';
+import { credentialAuditStorage } from '../audit/credential-audit';
 import { ApiKeyAuthenticator } from './api-key';
 import type { ServiceAuthenticator, ServiceContext } from './service-auth';
 
@@ -63,6 +64,23 @@ const authPluginImpl: FastifyPluginAsync<AuthPluginOptions> = async (app, option
     }
 
     request.serviceContext = await authenticator.authenticate(token);
+  });
+
+  app.addHook('onRequest', (request, _reply, done) => {
+    if (!request.serviceContext) {
+      done();
+      return;
+    }
+    credentialAuditStorage.run(
+      {
+        actorType: 'SERVICE_CLIENT',
+        actorId: request.serviceContext.serviceClientId,
+        requestId: request.requestId || request.id,
+      },
+      () => {
+        done();
+      },
+    );
   });
 };
 

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { authHeaders, createTestApp } from '../helpers/api';
+import { authHeaders, createTestApp, seedOrgWithFakeAccount } from '../helpers/api';
 
 describe('refunds, payment methods, providers', () => {
   let app: Awaited<ReturnType<typeof createTestApp>>['app'];
@@ -15,27 +15,7 @@ describe('refunds, payment methods, providers', () => {
     prisma = ctx.prisma;
     apiKey = ctx.apiKey;
 
-    const org = await app.inject({
-      method: 'POST',
-      url: '/v1/organizations',
-      headers: authHeaders(apiKey, 'misc-org'),
-      payload: { externalId: 'misc-org', name: 'Misc' },
-    });
-    organizationId = org.json().id;
-    await app.inject({
-      method: 'POST',
-      url: `/v1/organizations/${organizationId}/payment-accounts`,
-      headers: authHeaders(apiKey, 'misc-acct'),
-      payload: {
-        provider: 'fake',
-        providerMerchantId: 'M-misc',
-        isDefault: true,
-        credentialRefs: {
-          apiKey: 'env://FAKE_PROVIDER_API_KEY',
-          webhookSecret: 'env://FAKE_PROVIDER_WEBHOOK_SECRET',
-        },
-      },
-    });
+    organizationId = await seedOrgWithFakeAccount(app, apiKey, 'misc-org');
 
     const paid = await app.inject({
       method: 'POST',

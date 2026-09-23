@@ -93,6 +93,8 @@ async function main(): Promise<void> {
         apiKey: 'env://FAKE_PROVIDER_API_KEY',
         webhookSecret: 'env://FAKE_PROVIDER_WEBHOOK_SECRET',
       },
+      credentialsPresentKeys: ['apiKey', 'webhookSecret'],
+      credentialsUpdatedAt: new Date('2026-09-23T00:00:00.000Z'),
     },
     update: {
       status: PaymentAccountStatus.ACTIVE,

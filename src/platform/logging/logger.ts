@@ -11,12 +11,26 @@ export const LOG_REDACT_PATHS = [
   'credentials',
   'setupToken',
   'rawBody',
+  'clientSecret',
+  'clientId',
+  'SecretString',
+  'secret',
+  'secretRef',
+  'credentialRefs',
   '*.authorization',
   '*.apiKey',
   '*.webhookSecret',
   '*.credentials',
   '*.setupToken',
+  '*.clientSecret',
+  '*.clientId',
+  '*.SecretString',
+  '*.secret',
+  '*.secretRef',
+  '*.credentialRefs',
+  'credentials.*',
 ] as const;
+
 
 export function buildLoggerOptions(env: Pick<Env, 'NODE_ENV' | 'LOG_LEVEL'>): LoggerOptions {
   const options: LoggerOptions = {

@@ -1,35 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { authHeaders, createTestApp } from '../helpers/api';
-
-async function seedOrgWithAccount(
-  app: Awaited<ReturnType<typeof createTestApp>>['app'],
-  apiKey: string,
-  externalId: string,
-) {
-  const org = await app.inject({
-    method: 'POST',
-    url: '/v1/organizations',
-    headers: authHeaders(apiKey, `org-${externalId}`),
-    payload: { externalId, name: externalId },
-  });
-  const organizationId = org.json().id as string;
-  await app.inject({
-    method: 'POST',
-    url: `/v1/organizations/${organizationId}/payment-accounts`,
-    headers: authHeaders(apiKey, `acct-${externalId}`),
-    payload: {
-      provider: 'fake',
-      providerMerchantId: `M-${externalId}`,
-      isDefault: true,
-      credentialRefs: {
-        apiKey: 'env://FAKE_PROVIDER_API_KEY',
-        webhookSecret: 'env://FAKE_PROVIDER_WEBHOOK_SECRET',
-      },
-    },
-  });
-  return organizationId;
-}
+import { authHeaders, createTestApp, seedOrgWithFakeAccount } from '../helpers/api';
 
 describe('payments API', () => {
   let app: Awaited<ReturnType<typeof createTestApp>>['app'];
@@ -42,7 +13,7 @@ describe('payments API', () => {
     app = ctx.app;
     prisma = ctx.prisma;
     apiKey = ctx.apiKey;
-    organizationId = await seedOrgWithAccount(app, apiKey, 'pay-org');
+    organizationId = await seedOrgWithFakeAccount(app, apiKey, 'pay-org');
   });
 
   afterAll(async () => {

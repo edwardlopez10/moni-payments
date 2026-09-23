@@ -1,0 +1,69 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadWriteOwnEnvironmentSecrets",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:PutSecretValue",
+        "secretsmanager:DeleteSecret"
+      ],
+      "Resource": "arn:aws:secretsmanager:<region>:<account>:secret:moniveo-payments/production/*"
+    },
+    {
+      "Sid": "CreateOnlyInOwnPrefixWithOwnKeyAndTags",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:CreateSecret", "secretsmanager:TagResource"],
+      "Resource": "arn:aws:secretsmanager:<region>:<account>:secret:moniveo-payments/production/*",
+      "Condition": {
+        "StringEquals": {
+          "secretsmanager:KmsKeyArn": "<production-cmk-arn>",
+          "aws:RequestTag/Environment": "production"
+        },
+        "StringLike": {
+          "secretsmanager:Name": "moniveo-payments/production/*"
+        }
+      }
+    },
+    {
+      "Sid": "UseOwnEnvironmentKeyOnly",
+      "Effect": "Allow",
+      "Action": ["kms:Decrypt", "kms:GenerateDataKey"],
+      "Resource": "<production-cmk-arn>"
+    },
+    {
+      "Sid": "NeverForceDelete",
+      "Effect": "Deny",
+      "Action": "secretsmanager:DeleteSecret",
+      "Resource": "*",
+      "Condition": {
+        "Bool": {
+          "secretsmanager:ForceDeleteWithoutRecovery": "true"
+        }
+      }
+    },
+    {
+      "Sid": "DenyActionsOutsideRuntimeNeed",
+      "Effect": "Deny",
+      "Action": [
+        "secretsmanager:ListSecrets",
+        "secretsmanager:BatchGetSecretValue",
+        "secretsmanager:GetResourcePolicy",
+        "secretsmanager:PutResourcePolicy",
+        "secretsmanager:DeleteResourcePolicy",
+        "secretsmanager:ValidateResourcePolicy",
+        "secretsmanager:UntagResource",
+        "secretsmanager:UpdateSecret",
+        "secretsmanager:RotateSecret",
+        "secretsmanager:CancelRotateSecret",
+        "secretsmanager:ReplicateSecretToRegions",
+        "secretsmanager:RemoveRegionsFromReplication",
+        "secretsmanager:StopReplicationToReplica",
+        "secretsmanager:RestoreSecret"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
