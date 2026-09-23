@@ -160,7 +160,7 @@ export async function patchPaymentAccount(
     credentialRefs = { bundle: secretRef };
   }
 
-  let status: PaymentAccountStatus | undefined = body.status;
+  const status: PaymentAccountStatus | undefined = body.status;
   if (status !== undefined) {
     assertPaymentAccountTransition(existing.status, status);
   }
